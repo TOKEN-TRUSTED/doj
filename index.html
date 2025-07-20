@@ -95,27 +95,36 @@
     let userAddress;
 
     async function connectWallet() {
-      if (window.ethereum) {
+      if (typeof window.ethereum !== "undefined") {
         try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-          provider = new ethers.providers.Web3Provider(window.ethereum);
-          signer = provider.getSigner();
-          userAddress = await signer.getAddress();
-          document.getElementById("address").textContent = userAddress;
-          await updateBalance();
-          await updatePrice();
-
-          window.ethereum.on("accountsChanged", async (accounts) => {
+          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+          if (accounts.length > 0) {
             userAddress = accounts[0];
             document.getElementById("address").textContent = userAddress;
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
             await updateBalance();
-          });
+            await updatePrice();
+            window.ethereum.on("accountsChanged", async (accounts) => {
+              if (accounts.length > 0) {
+                userAddress = accounts[0];
+                document.getElementById("address").textContent = userAddress;
+                await updateBalance();
+              } else {
+                userAddress = null;
+                document.getElementById("address").textContent = "Not connected";
+                document.getElementById("balance").textContent = "0";
+              }
+            });
+          } else {
+            alert("No accounts found.");
+          }
         } catch (err) {
           alert("Connection rejected or error occurred.");
           console.error(err);
         }
       } else {
-        alert("MetaMask is not installed.");
+        alert("MetaMask is not installed or enabled.");
       }
     }
 
