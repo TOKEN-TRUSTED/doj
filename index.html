@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DOJ Token Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      padding: 20px;
+      max-width: 420px;
+      margin: auto;
+    }
+    #container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    img {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+    }
+    h2 {
+      margin: 10px 0;
+    }
+    .row {
+      margin: 12px 0;
+      font-size: 16px;
+    }
+    button {
+      background-color: #4caf50;
+      border: none;
+      color: white;
+      padding: 12px 22px;
+      text-align: center;
+      font-size: 16px;
+      margin: 10px 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    iframe {
+      width: 100%;
+      height: 220px;
+      border: none;
+      border-radius: 12px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <img
+      src="https://raw.githubusercontent.com/TOKEN-TRUSTED/doj/main/logo.png"
+      alt="DOJ Token Logo"
+      id="tokenLogo"
+      onerror="this.src='https://i.imgur.com/3iI64mM.png'" />
+    <h2>DOJ COIN (DOJ)</h2>
+    <div class="row">Current Price: $<span id="price">Loading...</span></div>
+    <div class="row">
+      Connected Wallet: <br />
+      <span id="address" style="font-size:14px; word-break: break-all;">Not connected</span>
+    </div>
+    <div class="row">
+      DOJ Balance: <span id="balance">0</span>
+    </div>
+    <div class="row">
+      <button id="connectBtn">Connect to MetaMask</button>
+      <button id="addTokenBtn">Add DOJ to MetaMask</button>
+    </div>
+    <iframe
+      src="https://dexscreener.com/bsc/0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20?embed=1"
+      allowfullscreen
+      title="DOJ Token Chart"
+    ></iframe>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <script>
+    const tokenAddress = "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E";
+    const tokenSymbol = "DOJ";
+    const tokenDecimals = 18;
+    const tokenImage = "https://raw.githubusercontent.com/TOKEN-TRUSTED/doj/main/logo.png";
+
+    let provider;
+    let signer;
+    let userAddress;
+
+    async function connectWallet() {
+      if (window.ethereum) {
+        try {
+          await window.ethereum.request({ method: "eth_requestAccounts" });
+          provider = new ethers.providers.Web3Provider(window.ethereum);
+          signer = provider.getSigner();
+          userAddress = await signer.getAddress();
+          document.getElementById("address").textContent = userAddress;
+          await updateBalance();
+          await updatePrice();
+
+          window.ethereum.on("accountsChanged", async (accounts) => {
+            userAddress = accounts[0];
+            document.getElementById("address").textContent = userAddress;
+            await updateBalance();
+          });
+        } catch (err) {
+          alert("Connection rejected or error occurred.");
+          console.error(err);
+        }
+      } else {
+        alert("MetaMask is not installed.");
+      }
+    }
+
+    async function updateBalance() {
+      if (!provider || !userAddress) {
+        document.getElementById("balance").textContent = "0";
+        return;
+      }
+      try {
+        const contract = new ethers.Contract(
+          tokenAddress,
+          ["function balanceOf(address owner) view returns (uint256)"],
+          provider
+        );
+        const balance = await contract.balanceOf(userAddress);
+        const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
+        document.getElementById("balance").textContent = Number(formatted).toFixed(4);
+      } catch (err) {
+        console.error("Error fetching balance:", err);
+        document.getElementById("balance").textContent = "Error";
+      }
+    }
+
+    async function updatePrice() {
+      try {
+        const response = await fetch(
+          `https://api.dexscreener.io/latest/dex/tokens/${tokenAddress}`
+        );
+        const data = await response.json();
+        const priceUsd = data.pairs?.[0]?.priceUsd || "N/A";
+        document.getElementById("price").textContent = Number(priceUsd).toFixed(4);
+      } catch (err) {
+        console.error("Error fetching price:", err);
+        document.getElementById("price").textContent = "Error";
+      }
+    }
+
+    async function addToken() {
+      if (!window.ethereum) {
+        alert("MetaMask is not installed.");
+        return;
+      }
+      try {
+        const wasAdded = await window.ethereum.request({
+          method: "wallet_watchAsset",
+          params: {
+            type: "ERC20",
+            options: {
+              address: tokenAddress,
+              symbol: tokenSymbol,
+              decimals: tokenDecimals,
+              image: tokenImage,
+            },
+          },
+        });
+        if (wasAdded) alert("DOJ token added to MetaMask!");
+        else alert("Token addition rejected.");
+      } catch (err) {
+        alert("Error adding token");
+        console.error(err);
+      }
+    }
+
+    document.getElementById("connectBtn").addEventListener("click", connectWallet);
+    document.getElementById("addTokenBtn").addEventListener("click", addToken);
+  </script>
+</body>
+</html>
