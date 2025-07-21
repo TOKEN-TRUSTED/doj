@@ -2,133 +2,104 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <title>DOJ Wallet Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>DOJ Token Dashboard</title>
-  <link rel="icon" href="https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png">
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: linear-gradient(to bottom right, #111827, #1f2937);
-      color: #f9fafb;
+      background: #f8f9fa;
       margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
+      padding: 20px;
+      color: #333;
     }
-    header {
+    .container {
+      max-width: 400px;
+      margin: auto;
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .logo {
+      width: 80px;
+      margin: 0 auto 10px auto;
+      display: block;
+    }
+    .title {
       text-align: center;
-      margin-top: 60px;
+      font-size: 24px;
+      margin-bottom: 10px;
     }
-    img {
-      width: 100px;
-      border-radius: 20%;
+    .info {
+      margin: 10px 0;
     }
-    h1 {
-      font-size: 2.5rem;
-      margin: 20px 0 10px;
-    }
-    p {
-      font-size: 1rem;
-      margin-bottom: 30px;
-      color: #d1d5db;
-    }
-    button {
-      padding: 12px 24px;
-      background-color: #10b981;
+    .button {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 1rem;
-      transition: background-color 0.3s ease;
     }
-    button:hover {
-      background-color: #059669;
-    }
-    #balance {
-      margin-top: 30px;
-      font-size: 1.1rem;
-      color: #e5e7eb;
-    }
-    footer {
-      margin-top: auto;
-      padding: 20px;
-      font-size: 0.9rem;
-      color: #6b7280;
+    .button:hover {
+      background: #0056b3;
     }
   </style>
 </head>
 <body>
-  <header>
-    <img src="https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png" alt="DOJ Logo">
-    <h1>DOJ Token</h1>
-    <p>Your decentralized token on Binance Smart Chain</p>
-    <button onclick="addToken()">Add to MetaMask</button>
-    <div id="balance">Balance: -</div>
-  </header>
-  <footer>
-    © 2025 DOJ Token. All rights reserved.
-  </footer>
+  <div class="container">
+    <img class="logo" src="https://raw.githubusercontent.com/TOKEN-TRUSTED/DOJ-TOKEN-ORIGINAL/main/logo.png" alt="DOJ Logo"/>
+    <div class="title">DOJ COIN Dashboard</div>
+    <div class="info">Wallet: <span id="wallet">Not Connected</span></div>
+    <div class="info">Balance: <span id="balance">-</span></div>
+    <div class="info">Price (USD): <span id="price">-</span></div>
+    <button class="button" onclick="connectWallet()">Connect Wallet</button>
+  </div>
 
   <script>
     const tokenAddress = "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E";
-    const tokenSymbol = "DOJ";
+    const pairAddress = "0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20";
     const tokenDecimals = 18;
-    const tokenImage = "https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png";
 
-    async function addToken() {
-      try {
-        const wasAdded = await window.ethereum.request({
-          method: 'wallet_watchAsset',
-          params: {
-            type: 'ERC20',
-            options: {
-              address: tokenAddress,
-              symbol: tokenSymbol,
-              decimals: tokenDecimals,
-              image: tokenImage,
-            },
-          },
-        });
+    async function connectWallet() {
+      if (window.ethereum) {
+        try {
+          const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+          const wallet = accounts[0];
+          document.getElementById("wallet").textContent = wallet;
 
-        if (wasAdded) {
-          console.log('Token added');
-        } else {
-          console.log('Token not added');
+          const provider = new ethers.providers.Web3Provider(window.ethereum);
+          const contract = new ethers.Contract(tokenAddress, [
+            "function balanceOf(address owner) view returns (uint256)"
+          ], provider);
+
+          const balance = await contract.balanceOf(wallet);
+          const formattedBalance = Number(ethers.utils.formatUnits(balance, tokenDecimals)).toLocaleString();
+          document.getElementById("balance").textContent = formattedBalance + " DOJ";
+        } catch (err) {
+          console.error(err);
         }
-      } catch (error) {
-        console.error(error);
+      } else {
+        alert("Please install MetaMask.");
       }
     }
 
-    async function fetchBalance() {
-      if (typeof window.ethereum === 'undefined') return;
-
+    async function fetchPrice() {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        const account = accounts[0];
-
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const contract = new ethers.Contract(tokenAddress, [
-          "function balanceOf(address) view returns (uint256)"
-        ], provider);
-
-        const balance = await contract.balanceOf(account);
-        const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
-        document.getElementById("balance").textContent = `Balance: ${formatted} DOJ`;
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/bsc/${pairAddress}`);
+        const data = await res.json();
+        const priceUsd = data?.pair?.priceUsd || null;
+        document.getElementById("price").textContent = priceUsd ? `$${Number(priceUsd).toFixed(6)}` : "-";
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch price", err);
       }
     }
 
-    window.addEventListener('load', async () => {
-      const script = document.createElement('script');
-      script.src = "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js";
-      script.onload = fetchBalance;
-      document.head.appendChild(script);
-    });
+    fetchPrice();
+    setInterval(fetchPrice, 10000); // Refresh every 10 seconds
   </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 </body>
 </html>
