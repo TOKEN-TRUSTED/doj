@@ -1,122 +1,106 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>DOJ Token Dashboard</title>
+  <meta charset="UTF-8">
+  <title>DOJ Wallet</title>
   <style>
     body {
       font-family: sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
       background: #f9f9f9;
-      padding: 2rem;
-      text-align: center;
-    }
-    .card {
-      background: white;
-      padding: 1.5rem;
       border-radius: 16px;
-      box-shadow: 0 0 10px #ddd;
-      max-width: 400px;
-      margin: auto;
-    }
-    img {
-      width: 80px;
-      height: 80px;
-      border-radius: 16px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      direction: rtl;
     }
     button {
-      padding: 0.6rem 1.2rem;
-      border: none;
-      background: #111827;
-      color: white;
+      padding: 10px 20px;
+      margin-top: 10px;
       font-size: 16px;
-      border-radius: 8px;
       cursor: pointer;
-      margin-top: 1rem;
     }
-    .price {
-      font-size: 24px;
-      margin: 1rem 0;
-      color: #111;
-    }
-    .balance {
-      font-size: 18px;
-      color: #333;
+    .info {
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <img src="https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png" alt="Token Logo" />
-    <h2>DOJ COIN (DOJ)</h2>
-    <div class="price" id="price">Loading price...</div>
-    <div class="balance" id="balance">Balance: --</div>
-    <button onclick="addToken()">➕ Add to MetaMask</button>
+  <h2>کیف پول DOJ</h2>
+
+  <button onclick="connectWallet()">اتصال به متامسک</button>
+  <div class="info">
+    <p><strong>آدرس کیف پول:</strong> <span id="wallet-address">---</span></p>
+    <p><strong>موجودی DOJ:</strong> <span id="doj-balance">0</span></p>
+    <p><strong>قیمت DOJ:</strong> <span id="doj-price">$---</span></p>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/web3@latest/dist/web3.min.js"></script>
+  <button onclick="addDOJToken()">افزودن توکن به متامسک</button>
+
   <script>
-    const tokenAddress = "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E";
-    const tokenSymbol = "DOJ";
-    const tokenDecimals = 18;
-    const tokenImage = "https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png";
+    const DOJ_TOKEN = {
+      address: "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E",
+      symbol: "DOJ",
+      decimals: 18,
+      image: "https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/logo.png"
+    };
 
-    async function addToken() {
+    let walletAddress;
+
+    async function connectWallet() {
+      if (typeof window.ethereum !== 'undefined') {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        walletAddress = accounts[0];
+        document.getElementById('wallet-address').textContent = walletAddress;
+        fetchDOJBalance();
+        fetchDOJPrice();
+      } else {
+        alert("MetaMask نصب نیست!");
+      }
+    }
+
+    async function fetchDOJBalance() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const abi = ["function balanceOf(address owner) view returns (uint256)"];
+      const contract = new ethers.Contract(DOJ_TOKEN.address, abi, provider);
+      const balance = await contract.balanceOf(walletAddress);
+      const formatted = ethers.utils.formatUnits(balance, DOJ_TOKEN.decimals);
+      document.getElementById('doj-balance').textContent = formatted;
+    }
+
+    async function fetchDOJPrice() {
       try {
-        await window.ethereum.request({
-          method: "wallet_watchAsset",
+        const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/bsc/0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20");
+        const json = await res.json();
+        const price = json.pair.priceUsd || "---";
+        document.getElementById('doj-price').textContent = "$" + Number(price).toFixed(4);
+      } catch (err) {
+        document.getElementById('doj-price').textContent = "نامشخص";
+      }
+    }
+
+    async function addDOJToken() {
+      try {
+        const wasAdded = await window.ethereum.request({
+          method: 'wallet_watchAsset',
           params: {
-            type: "ERC20",
-            options: {
-              address: tokenAddress,
-              symbol: tokenSymbol,
-              decimals: tokenDecimals,
-              image: tokenImage,
-            },
-          },
+            type: 'ERC20',
+            options: DOJ_TOKEN
+          }
         });
-      } catch (e) {
-        console.error(e);
+
+        if (wasAdded) {
+          alert('توکن DOJ اضافه شد!');
+        } else {
+          alert('کاربر رد کرد.');
+        }
+      } catch (error) {
+        console.error(error);
       }
     }
-
-    async function loadBalance() {
-      if (window.ethereum) {
-        const web3 = new Web3(window.ethereum);
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        const accounts = await web3.eth.getAccounts();
-        const account = accounts[0];
-
-        const abi = [
-          {
-            constant: true,
-            inputs: [{ name: "_owner", type: "address" }],
-            name: "balanceOf",
-            outputs: [{ name: "balance", type: "uint256" }],
-            type: "function",
-          },
-        ];
-        const contract = new web3.eth.Contract(abi, tokenAddress);
-        const balance = await contract.methods.balanceOf(account).call();
-        const formatted = parseFloat(balance / 10 ** tokenDecimals).toFixed(4);
-        document.getElementById("balance").innerText = `Balance: ${formatted} DOJ`;
-      }
-    }
-
-    async function loadPrice() {
-      try {
-        const url = "https://api.dexscreener.com/latest/dex/pairs/bsc/0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20";
-        const res = await fetch(url);
-        const data = await res.json();
-        const price = parseFloat(data?.pair?.priceUsd || 1.0).toFixed(4);
-        document.getElementById("price").innerText = `$${price} USD`;
-      } catch (e) {
-        document.getElementById("price").innerText = "$1.0000 USD";
-      }
-    }
-
-    loadBalance();
-    loadPrice();
   </script>
+
+  <!-- ethers.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
 </body>
 </html>
