@@ -2,92 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DOJ Token Dashboard</title>
-  <link rel="icon" href="https://raw.githubusercontent.com/TOKEN-TRUSTED/DOJ-TOKEN-ORIGINAL/main/logo.png" type="image/png">
+  <link rel="icon" href="https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png">
   <style>
     body {
-      font-family: sans-serif;
-      background-color: #0e1117;
-      color: #ffffff;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to bottom right, #111827, #1f2937);
+      color: #f9fafb;
+      margin: 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
       min-height: 100vh;
-      margin: 0;
     }
-    .container {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 12px;
-      padding: 2rem;
+    header {
       text-align: center;
-      max-width: 500px;
-      width: 90%;
+      margin-top: 60px;
     }
-    .token-logo {
-      width: 72px;
-      height: 72px;
-      border-radius: 50%;
-      margin-bottom: 1rem;
+    img {
+      width: 100px;
+      border-radius: 20%;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin: 20px 0 10px;
+    }
+    p {
+      font-size: 1rem;
+      margin-bottom: 30px;
+      color: #d1d5db;
     }
     button {
-      padding: 10px 20px;
+      padding: 12px 24px;
+      background-color: #10b981;
+      color: white;
       border: none;
       border-radius: 8px;
-      background-color: #238636;
-      color: white;
-      font-size: 16px;
       cursor: pointer;
+      font-size: 1rem;
+      transition: background-color 0.3s ease;
     }
-    .price, .balance {
-      margin: 1rem 0;
-      font-size: 18px;
+    button:hover {
+      background-color: #059669;
+    }
+    #balance {
+      margin-top: 30px;
+      font-size: 1.1rem;
+      color: #e5e7eb;
+    }
+    footer {
+      margin-top: auto;
+      padding: 20px;
+      font-size: 0.9rem;
+      color: #6b7280;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <img src="https://raw.githubusercontent.com/TOKEN-TRUSTED/DOJ-TOKEN-ORIGINAL/main/logo.png" alt="DOJ Logo" class="token-logo">
-    <h1>DOJ COIN</h1>
-    <div class="price">🔄 قیمت لحظه‌ای: <span id="price">در حال بارگذاری...</span></div>
-    <div class="balance">💰 موجودی شما: <span id="balance">—</span></div>
-    <button onclick="connectWallet()">اتصال کیف‌پول</button>
-    <br /><br />
-    <button onclick="addToken()">➕ افزودن DOJ به MetaMask</button>
-  </div>
+  <header>
+    <img src="https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png" alt="DOJ Logo">
+    <h1>DOJ Token</h1>
+    <p>Your decentralized token on Binance Smart Chain</p>
+    <button onclick="addToken()">Add to MetaMask</button>
+    <div id="balance">Balance: -</div>
+  </header>
+  <footer>
+    © 2025 DOJ Token. All rights reserved.
+  </footer>
 
   <script>
     const tokenAddress = "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E";
     const tokenSymbol = "DOJ";
     const tokenDecimals = 18;
-    const tokenImage = "https://raw.githubusercontent.com/TOKEN-TRUSTED/DOJ-TOKEN-ORIGINAL/main/logo.png";
-
-    async function connectWallet() {
-      if (window.ethereum) {
-        try {
-          const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-          const account = accounts[0];
-          getBalance(account);
-        } catch (err) {
-          alert("اتصال رد شد");
-        }
-      } else {
-        alert("MetaMask نصب نیست!");
-      }
-    }
-
-    async function getBalance(account) {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const contract = new ethers.Contract(tokenAddress, ["function balanceOf(address owner) view returns (uint256)"], provider);
-      const balance = await contract.balanceOf(account);
-      document.getElementById("balance").innerText = (balance / 1e18).toFixed(4) + " DOJ";
-    }
+    const tokenImage = "https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/doj-logo.png";
 
     async function addToken() {
       try {
-        const wasAdded = await ethereum.request({
+        const wasAdded = await window.ethereum.request({
           method: 'wallet_watchAsset',
           params: {
             type: 'ERC20',
@@ -101,30 +94,41 @@
         });
 
         if (wasAdded) {
-          alert('DOJ به متامسک اضافه شد!');
+          console.log('Token added');
         } else {
-          alert('اضافه نشد :(');
+          console.log('Token not added');
         }
       } catch (error) {
         console.error(error);
       }
     }
 
-    async function fetchPrice() {
+    async function fetchBalance() {
+      if (typeof window.ethereum === 'undefined') return;
+
       try {
-        const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/bsc/0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20");
-        const json = await res.json();
-        const price = json.pair.priceUsd;
-        document.getElementById("price").innerText = `$${parseFloat(price).toFixed(4)}`;
-      } catch (e) {
-        document.getElementById("price").innerText = "نامشخص";
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const account = accounts[0];
+
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const contract = new ethers.Contract(tokenAddress, [
+          "function balanceOf(address) view returns (uint256)"
+        ], provider);
+
+        const balance = await contract.balanceOf(account);
+        const formatted = ethers.utils.formatUnits(balance, tokenDecimals);
+        document.getElementById("balance").textContent = `Balance: ${formatted} DOJ`;
+      } catch (err) {
+        console.error(err);
       }
     }
 
-    fetchPrice();
-    setInterval(fetchPrice, 10000);
+    window.addEventListener('load', async () => {
+      const script = document.createElement('script');
+      script.src = "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js";
+      script.onload = fetchBalance;
+      document.head.appendChild(script);
+    });
   </script>
-
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </body>
 </html>
