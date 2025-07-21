@@ -2,104 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>DOJ Wallet Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DOJ Token Dashboard</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background: #f8f9fa;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
       margin: 0;
-      padding: 20px;
-      color: #333;
     }
-    .container {
-      max-width: 400px;
-      margin: auto;
+    .card {
       background: white;
-      padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .logo {
-      width: 80px;
-      margin: 0 auto 10px auto;
-      display: block;
-    }
-    .title {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+      padding: 32px;
+      width: 360px;
       text-align: center;
-      font-size: 24px;
-      margin-bottom: 10px;
     }
-    .info {
-      margin: 10px 0;
-    }
-    .button {
-      width: 100%;
-      padding: 10px;
-      background: #007bff;
+    .btn {
+      background: #3b82f6;
       color: white;
       border: none;
-      border-radius: 6px;
+      padding: 12px 20px;
+      border-radius: 8px;
       cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
     }
-    .button:hover {
-      background: #0056b3;
+    .info {
+      margin-top: 20px;
+      font-size: 18px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <img class="logo" src="https://raw.githubusercontent.com/TOKEN-TRUSTED/DOJ-TOKEN-ORIGINAL/main/logo.png" alt="DOJ Logo"/>
-    <div class="title">DOJ COIN Dashboard</div>
-    <div class="info">Wallet: <span id="wallet">Not Connected</span></div>
-    <div class="info">Balance: <span id="balance">-</span></div>
-    <div class="info">Price (USD): <span id="price">-</span></div>
-    <button class="button" onclick="connectWallet()">Connect Wallet</button>
+  <div class="card">
+    <h2>DOJ Token</h2>
+    <button class="btn" onclick="connectWallet()">Connect Wallet</button>
+    <div class="info" id="walletAddress"></div>
+    <div class="info">Balance: <span id="balance">-</span> DOJ</div>
+    <div class="info">Price: <span id="price">-</span> USD</div>
   </div>
 
   <script>
     const tokenAddress = "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E";
-    const pairAddress = "0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20";
     const tokenDecimals = 18;
+    const pairAddress = "0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20";
+    let account;
 
     async function connectWallet() {
       if (window.ethereum) {
-        try {
-          const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-          const wallet = accounts[0];
-          document.getElementById("wallet").textContent = wallet;
-
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          const contract = new ethers.Contract(tokenAddress, [
-            "function balanceOf(address owner) view returns (uint256)"
-          ], provider);
-
-          const balance = await contract.balanceOf(wallet);
-          const formattedBalance = Number(ethers.utils.formatUnits(balance, tokenDecimals)).toLocaleString();
-          document.getElementById("balance").textContent = formattedBalance + " DOJ";
-        } catch (err) {
-          console.error(err);
-        }
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        account = accounts[0];
+        document.getElementById("walletAddress").innerText = shorten(account);
+        getBalance();
+        getPrice();
       } else {
-        alert("Please install MetaMask.");
+        alert("Please install MetaMask!");
       }
     }
 
-    async function fetchPrice() {
+    function shorten(address) {
+      return address.slice(0, 6) + '...' + address.slice(-4);
+    }
+
+    async function getBalance() {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const contract = new ethers.Contract(tokenAddress, [
+        "function balanceOf(address) view returns (uint256)"
+      ], provider);
+      const bal = await contract.balanceOf(account);
+      const formatted = parseFloat(ethers.utils.formatUnits(bal, tokenDecimals)).toFixed(4);
+      document.getElementById("balance").innerText = formatted;
+    }
+
+    async function getPrice() {
       try {
         const res = await fetch(`https://api.dexscreener.com/latest/dex/pairs/bsc/${pairAddress}`);
         const data = await res.json();
-        const priceUsd = data?.pair?.priceUsd || null;
-        document.getElementById("price").textContent = priceUsd ? `$${Number(priceUsd).toFixed(6)}` : "-";
-      } catch (err) {
-        console.error("Failed to fetch price", err);
+        const price = parseFloat(data.pair.priceUsd).toFixed(4);
+        document.getElementById("price").innerText = price;
+      } catch (e) {
+        document.getElementById("price").innerText = "Error";
       }
     }
-
-    fetchPrice();
-    setInterval(fetchPrice, 10000); // Refresh every 10 seconds
   </script>
-
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <script src="https://cdn.ethers.io/lib/ethers-5.2.umd.min.js" type="application/javascript"></script>
 </body>
 </html>
