@@ -1,106 +1,114 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>DOJ Wallet</title>
+  <title>DOJ Coin Dashboard</title>
   <style>
     body {
-      font-family: sans-serif;
-      max-width: 600px;
-      margin: 40px auto;
+      font-family: Arial, sans-serif;
+      padding: 30px;
+      background: #f7f7f7;
+    }
+    #container {
+      max-width: 400px;
+      margin: auto;
+      background: white;
       padding: 20px;
-      background: #f9f9f9;
-      border-radius: 16px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      direction: rtl;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+    .token-info {
+      margin-bottom: 15px;
     }
     button {
       padding: 10px 20px;
-      margin-top: 10px;
-      font-size: 16px;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 8px;
       cursor: pointer;
-    }
-    .info {
-      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h2>کیف پول DOJ</h2>
-
-  <button onclick="connectWallet()">اتصال به متامسک</button>
-  <div class="info">
-    <p><strong>آدرس کیف پول:</strong> <span id="wallet-address">---</span></p>
-    <p><strong>موجودی DOJ:</strong> <span id="doj-balance">0</span></p>
-    <p><strong>قیمت DOJ:</strong> <span id="doj-price">$---</span></p>
+  <div id="container">
+    <h2>DOJ COIN Wallet</h2>
+    <div class="token-info"><strong>Wallet:</strong> <span id="wallet">Not connected</span></div>
+    <div class="token-info"><strong>DOJ Balance:</strong> <span id="balance">0</span></div>
+    <div class="token-info"><strong>Price (USD):</strong> <span id="price">Loading...</span></div>
+    <button onclick="connect()">Connect Wallet</button>
+    <button onclick="addToken()">Add DOJ to MetaMask</button>
   </div>
 
-  <button onclick="addDOJToken()">افزودن توکن به متامسک</button>
-
   <script>
-    const DOJ_TOKEN = {
-      address: "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E",
-      symbol: "DOJ",
-      decimals: 18,
-      image: "https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/logo.png"
-    };
+    const TOKEN_ADDRESS = "0x2815978CA263b0E82daEf5b2ba019Cc2FFc6097E";
+    const TOKEN_SYMBOL = "DOJ";
+    const TOKEN_DECIMALS = 18;
+    const TOKEN_IMAGE = "https://token-trusted.github.io/DOJ-TOKEN-ORIGINAL/logo.png";
 
-    let walletAddress;
+    async function connect() {
+      if (window.ethereum) {
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        const wallet = accounts[0];
+        document.getElementById("wallet").innerText = wallet;
 
-    async function connectWallet() {
-      if (typeof window.ethereum !== 'undefined') {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        walletAddress = accounts[0];
-        document.getElementById('wallet-address').textContent = walletAddress;
-        fetchDOJBalance();
-        fetchDOJPrice();
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const contract = new ethers.Contract(
+          TOKEN_ADDRESS,
+          ["function balanceOf(address) view returns (uint256)"],
+          provider
+        );
+
+        const balance = await contract.balanceOf(wallet);
+        document.getElementById("balance").innerText = (balance / 1e18).toFixed(4);
       } else {
-        alert("MetaMask نصب نیست!");
+        alert("MetaMask not detected");
       }
     }
 
-    async function fetchDOJBalance() {
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
-      const abi = ["function balanceOf(address owner) view returns (uint256)"];
-      const contract = new ethers.Contract(DOJ_TOKEN.address, abi, provider);
-      const balance = await contract.balanceOf(walletAddress);
-      const formatted = ethers.utils.formatUnits(balance, DOJ_TOKEN.decimals);
-      document.getElementById('doj-balance').textContent = formatted;
-    }
-
-    async function fetchDOJPrice() {
-      try {
-        const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/bsc/0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20");
-        const json = await res.json();
-        const price = json.pair.priceUsd || "---";
-        document.getElementById('doj-price').textContent = "$" + Number(price).toFixed(4);
-      } catch (err) {
-        document.getElementById('doj-price').textContent = "نامشخص";
-      }
-    }
-
-    async function addDOJToken() {
+    async function addToken() {
       try {
         const wasAdded = await window.ethereum.request({
           method: 'wallet_watchAsset',
           params: {
             type: 'ERC20',
-            options: DOJ_TOKEN
-          }
+            options: {
+              address: TOKEN_ADDRESS,
+              symbol: TOKEN_SYMBOL,
+              decimals: TOKEN_DECIMALS,
+              image: TOKEN_IMAGE,
+            },
+          },
         });
 
         if (wasAdded) {
-          alert('توکن DOJ اضافه شد!');
+          console.log('DOJ added');
         } else {
-          alert('کاربر رد کرد.');
+          console.log('User rejected token');
         }
       } catch (error) {
         console.error(error);
       }
     }
+
+    // Price fetch from dexscreener (sample)
+    async function fetchPrice() {
+      try {
+        const res = await fetch("https://api.dexscreener.com/latest/dex/pairs/bsc/0xBAB73702F12f0152cC3FD7781EBBdd7891Fd1a20");
+        const data = await res.json();
+        const price = data.pair.priceUsd;
+        document.getElementById("price").innerText = "$" + parseFloat(price).toFixed(4);
+      } catch (e) {
+        document.getElementById("price").innerText = "Error fetching price";
+        console.error(e);
+      }
+    }
+
+    fetchPrice();
+    setInterval(fetchPrice, 30000); // every 30s
   </script>
 
-  <!-- ethers.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers/dist/ethers.min.js"></script>
+  <!-- Load ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 </body>
 </html>
